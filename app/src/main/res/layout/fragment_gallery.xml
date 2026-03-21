@@ -16,6 +16,7 @@
 -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -67,6 +68,37 @@
                 android:theme="@style/AppThemeProgressStyle"
                 android:visibility="gone" />
 
+            <!-- bluetooth pairing, add pose, and View Saved Passwords here
+            -->
+            <LinearLayout
+                android:id="@+id/settingsButtons"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:background="#66000000">
+
+                <Button
+                    android:id="@+id/btnBluetooth"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Bluetooth Pairing" />
+
+                <Button
+                    android:id="@+id/btnAddPose"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Add Pose" />
+
+                <Button
+                    android:id="@+id/btnViewPasswords"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="View Saved Passwords" />
+
+            </LinearLayout>
+
         </RelativeLayout>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -81,6 +113,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:tint="@android:color/white" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <include

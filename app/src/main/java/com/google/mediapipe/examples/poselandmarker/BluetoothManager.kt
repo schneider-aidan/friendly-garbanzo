@@ -53,6 +53,10 @@ class BluetoothManager(private val context: Context) {
             true
         }
     }
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun getPairedDevices(): Set<android.bluetooth.BluetoothDevice>? {
+        return adapter?.bondedDevices
+    }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connect(address: String) {

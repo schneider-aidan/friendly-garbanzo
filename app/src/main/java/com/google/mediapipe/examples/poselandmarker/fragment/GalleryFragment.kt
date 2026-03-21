@@ -15,6 +15,8 @@
  */
 package com.google.mediapipe.examples.poselandmarker.fragment
 
+import android.Manifest
+import android.app.AlertDialog
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
@@ -29,8 +31,11 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import com.google.mediapipe.examples.poselandmarker.BluetoothManager
+import androidx.lifecycle.lifecycleScope
 import com.google.mediapipe.examples.poselandmarker.MainViewModel
 import com.google.mediapipe.examples.poselandmarker.PoseLandmarkerHelper
 import com.google.mediapipe.examples.poselandmarker.databinding.FragmentGalleryBinding
@@ -41,7 +46,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
-
+    private lateinit var bluetoothManager: BluetoothManager
     enum class MediaType {
         IMAGE,
         VIDEO,
@@ -87,13 +92,67 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         return fragmentGalleryBinding.root
     }
 
+    private fun observeBluetoothStatus() {
+        lifecycleScope.launchWhenStarted {
+            bluetoothManager.status.collect { status ->
+
+                when (status) {
+
+                    is BluetoothManager.Status.CONNECTING -> {
+                        Toast.makeText(requireContext(), "Connecting...", Toast.LENGTH_SHORT).show()
+                    }
+
+                    is BluetoothManager.Status.CONNECTED -> {
+                        Toast.makeText(
+                            requireContext(),
+                            "Connected to ${status.deviceName}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    is BluetoothManager.Status.ERROR -> {
+                        Toast.makeText(
+                            requireContext(),
+                            status.message,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        bluetoothManager = BluetoothManager(requireContext())
+
         fragmentGalleryBinding.fabGetContent.setOnClickListener {
             getContent.launch(arrayOf("image/*", "video/*"))
         }
 
         initBottomSheetControls()
+
+        // Bluetooth button
+        fragmentGalleryBinding.btnBluetooth.setOnClickListener {
+
+            if (!bluetoothManager.isBluetoothSupported()) {
+                Toast.makeText(requireContext(), "Bluetooth not supported", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (!bluetoothManager.isBluetoothEnabled()) {
+                Toast.makeText(requireContext(), "Turn Bluetooth ON first", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // dont know why this function is not working
+            //showBluetoothDevicePicker()
+        }
+
+        observeBluetoothStatus()
     }
 
     override fun onPause() {
@@ -451,4 +510,44 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         // Value used to get frames at specific intervals for inference (e.g. every 300ms)
         private const val VIDEO_INTERVAL_MS = 300L
     }
+
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    private fun showBluetoothDevicePicker() {
+
+        if (!bluetoothManager.hasConnectPermission()) {
+            Toast.makeText(requireContext(), "Bluetooth permission missing", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val devices = bluetoothManager.getPairedDevices()
+
+        if (devices.isNullOrEmpty()) {
+            Toast.makeText(requireContext(), "No paired Bluetooth devices", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val deviceNames = devices.map { device ->
+            "${device.name} (${device.address})"
+        }.toTypedArray()
+
+        val deviceList = devices.toList()
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Select ESP32 Device")
+            .setItems(deviceNames) { _, which ->
+
+                val selectedDevice = deviceList[which]
+
+                Toast.makeText(
+                    requireContext(),
+                    "Connecting to ${selectedDevice.name}",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                bluetoothManager.connect(selectedDevice.address)
+            }
+            .show()
+    }
+
 }

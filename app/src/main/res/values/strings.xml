@@ -30,7 +30,7 @@
     <string name="alt_bottom_sheet_threshold_button_plus">Increasing
         threshold of pose detect results button</string>
     <string name="menu_camera">Camera</string>
-    <string name="menu_gallery">Gallery</string>
+    <string name="menu_gallery">Settings</string>
     <string name="tv_gallery_placeholder">Click + to add an image or a video
         to begin running the pose landmarker.</string>
 
