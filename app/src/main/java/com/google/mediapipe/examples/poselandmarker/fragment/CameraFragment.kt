@@ -44,6 +44,7 @@ import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import android.os.CountDownTimer
 
 class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
@@ -62,7 +63,10 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var imageAnalyzer: ImageAnalysis? = null
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
-    private var cameraFacing = CameraSelector.LENS_FACING_BACK
+    private var cameraFacing = CameraSelector.LENS_FACING_FRONT
+
+    private var isDetectionActive = false
+    private var countDownTimer: CountDownTimer? = null
 
     /** Blocking ML operations are performed using this executor */
     private lateinit var backgroundExecutor: ExecutorService
@@ -134,6 +138,10 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         fragmentCameraBinding.viewFinder.post {
             // Set up the camera and its use cases
             setUpCamera()
+        }
+
+        fragmentCameraBinding.btnStart.setOnClickListener {
+            startCountdown()
         }
 
         // Create the PoseLandmarkerHelper that will handle the inference
@@ -407,5 +415,24 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 )
             }
         }
+    }
+
+    private fun startCountdown() {
+        fragmentCameraBinding.btnStart.isEnabled = false
+        fragmentCameraBinding.tvCountdown.visibility = View.VISIBLE
+
+        countDownTimer?.cancel()
+        countDownTimer = object : CountDownTimer(3000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                val secondsLeft = (millisUntilFinished / 1000).toInt() + 1
+                fragmentCameraBinding.tvCountdown.text = secondsLeft.toString()
+            }
+
+            override fun onFinish() {
+                fragmentCameraBinding.tvCountdown.visibility = View.GONE
+                fragmentCameraBinding.btnStart.isEnabled = true
+                isDetectionActive = true
+            }
+        }.start()
     }
 }
