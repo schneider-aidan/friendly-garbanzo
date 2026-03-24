@@ -65,8 +65,8 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
     override fun draw(canvas: Canvas) {
         super.draw(canvas)
         results?.let { poseLandmarkerResult ->
-            for(landmark in poseLandmarkerResult.landmarks()) {
-                for(normalizedLandmark in landmark) {
+            for (landmark in poseLandmarkerResult.landmarks()) {
+                for (normalizedLandmark in landmark) {
                     canvas.drawPoint(
                         normalizedLandmark.x() * imageWidth * scaleFactor,
                         normalizedLandmark.y() * imageHeight * scaleFactor,
@@ -76,11 +76,12 @@ class OverlayView(context: Context?, attrs: AttributeSet?) :
 
                 PoseLandmarker.POSE_LANDMARKS.forEach {
                     canvas.drawLine(
-                        poseLandmarkerResult.landmarks().get(0).get(it!!.start()).x() * imageWidth * scaleFactor,
-                        poseLandmarkerResult.landmarks().get(0).get(it.start()).y() * imageHeight * scaleFactor,
-                        poseLandmarkerResult.landmarks().get(0).get(it.end()).x() * imageWidth * scaleFactor,
-                        poseLandmarkerResult.landmarks().get(0).get(it.end()).y() * imageHeight * scaleFactor,
-                        linePaint)
+                        landmark[it!!.start()].x() * imageWidth * scaleFactor,
+                        landmark[it.start()].y() * imageHeight * scaleFactor,
+                        landmark[it.end()].x() * imageWidth * scaleFactor,
+                        landmark[it.end()].y() * imageHeight * scaleFactor,
+                        linePaint
+                    )
                 }
             }
         }

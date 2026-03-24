@@ -36,6 +36,7 @@ class PoseLandmarkerHelper(
     var minPoseDetectionConfidence: Float = DEFAULT_POSE_DETECTION_CONFIDENCE,
     var minPoseTrackingConfidence: Float = DEFAULT_POSE_TRACKING_CONFIDENCE,
     var minPosePresenceConfidence: Float = DEFAULT_POSE_PRESENCE_CONFIDENCE,
+    var maxPoses: Int = DEFAULT_NUM_POSES,
     var currentModel: Int = MODEL_POSE_LANDMARKER_FULL,
     var currentDelegate: Int = DELEGATE_CPU,
     var runningMode: RunningMode = RunningMode.IMAGE,
@@ -112,6 +113,7 @@ class PoseLandmarkerHelper(
             val optionsBuilder =
                 PoseLandmarker.PoseLandmarkerOptions.builder()
                     .setBaseOptions(baseOptions)
+                    .setNumPoses(maxPoses)
                     .setMinPoseDetectionConfidence(minPoseDetectionConfidence)
                     .setMinTrackingConfidence(minPoseTrackingConfidence)
                     .setMinPosePresenceConfidence(minPosePresenceConfidence)
@@ -370,6 +372,8 @@ class PoseLandmarkerHelper(
         const val DEFAULT_POSE_TRACKING_CONFIDENCE = 0.5F
         const val DEFAULT_POSE_PRESENCE_CONFIDENCE = 0.5F
         const val DEFAULT_NUM_POSES = 1
+        const val MAX_NUM_POSES = 50
+        const val MAX_NUM_POSE_REFERENCES = 50
         const val OTHER_ERROR = 0
         const val GPU_ERROR = 1
         const val MODEL_POSE_LANDMARKER_FULL = 0

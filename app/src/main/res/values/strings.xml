@@ -31,8 +31,7 @@
         threshold of pose detect results button</string>
     <string name="menu_camera">Camera</string>
     <string name="menu_gallery">Settings</string>
-    <string name="tv_gallery_placeholder">Click + to add an image or a video
-        to begin running the pose landmarker.</string>
+    <string name="tv_gallery_placeholder">Add pose reference photos here. Each image that contains a detected pose is saved into the reference gallery below.</string>
 
     <string name="label_inference_time">Inference Time</string>
     <string name="label_fps">Frames per Second</string>
@@ -45,6 +44,21 @@
     <string name="label_num_poses">Number of Poses</string>
     <string name="label_delegate">Delegate</string>
     <string name="label_models">Model</string>
+    <string name="gallery_processing_status">Processing image %1$d of %2$d</string>
+    <string name="gallery_batch_complete">Processed %1$d image(s). Avg inference: %2$d ms</string>
+    <string name="pose_reference_total">%1$d / %2$d pose references saved</string>
+    <string name="pose_reference_total_default">0 / 50 pose references saved</string>
+    <string name="pose_reference_image">Pose reference image</string>
+    <string name="add_pose_reference">Add pose reference</string>
+    <string name="delete_pose_reference">Delete pose reference</string>
+    <string name="pose_reference_added">Added %1$d pose reference(s).</string>
+    <string name="pose_reference_added_with_skips">Added %1$d pose reference(s), skipped %2$d duplicate pose(s).</string>
+    <string name="pose_reference_no_pose_found">No new pose was detected in the selected image(s).</string>
+    <string name="pose_reference_limit_reached">The reference gallery already has 50 images.</string>
+    <string name="pose_reference_slots_used">Only the next %1$d image(s) fit in the reference gallery.</string>
+    <string name="camera_match_none">No saved pose match</string>
+    <string name="camera_match_found">Detected: %1$s</string>
+    <string name="camera_match_closest">Closest: %1$s (distance %2$.3f)</string>
 
     <string-array name="delegate_spinner_titles">
         <item>CPU</item>

@@ -94,6 +94,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             viewModel.setMinPoseDetectionConfidence(poseLandmarkerHelper.minPoseDetectionConfidence)
             viewModel.setMinPoseTrackingConfidence(poseLandmarkerHelper.minPoseTrackingConfidence)
             viewModel.setMinPosePresenceConfidence(poseLandmarkerHelper.minPosePresenceConfidence)
+            viewModel.setMaxPoses(poseLandmarkerHelper.maxPoses)
             viewModel.setDelegate(poseLandmarkerHelper.currentDelegate)
 
             // Close the PoseLandmarkerHelper and release resources
@@ -141,6 +142,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             poseLandmarkerHelper = PoseLandmarkerHelper(
                 context = requireContext(),
                 runningMode = RunningMode.LIVE_STREAM,
+                maxPoses = viewModel.currentMaxPoses,
+                currentModel = viewModel.currentModel,
                 minPoseDetectionConfidence = viewModel.currentMinPoseDetectionConfidence,
                 minPoseTrackingConfidence = viewModel.currentMinPoseTrackingConfidence,
                 minPosePresenceConfidence = viewModel.currentMinPosePresenceConfidence,
@@ -151,6 +154,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         // Attach listeners to UI control widgets
         initBottomSheetControls()
+        updateMatchStatus(null, Float.MAX_VALUE, false)
     }
 
     private fun initBottomSheetControls() {
@@ -160,6 +164,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             String.format(
                 Locale.US, "%.2f", viewModel.currentMinPoseDetectionConfidence
             )
+        fragmentCameraBinding.bottomSheetLayout.maxPosesValue.text =
+            viewModel.currentMaxPoses.toString()
         fragmentCameraBinding.bottomSheetLayout.trackingThresholdValue.text =
             String.format(
                 Locale.US, "%.2f", viewModel.currentMinPoseTrackingConfidence
@@ -181,6 +187,20 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         fragmentCameraBinding.bottomSheetLayout.detectionThresholdPlus.setOnClickListener {
             if (poseLandmarkerHelper.minPoseDetectionConfidence <= 0.8) {
                 poseLandmarkerHelper.minPoseDetectionConfidence += 0.1f
+                updateControlsUi()
+            }
+        }
+
+        fragmentCameraBinding.bottomSheetLayout.maxPosesMinus.setOnClickListener {
+            if (poseLandmarkerHelper.maxPoses > 1) {
+                poseLandmarkerHelper.maxPoses -= 1
+                updateControlsUi()
+            }
+        }
+
+        fragmentCameraBinding.bottomSheetLayout.maxPosesPlus.setOnClickListener {
+            if (poseLandmarkerHelper.maxPoses < PoseLandmarkerHelper.MAX_NUM_POSES) {
+                poseLandmarkerHelper.maxPoses += 1
                 updateControlsUi()
             }
         }
@@ -267,6 +287,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // helper.
     private fun updateControlsUi() {
         if(this::poseLandmarkerHelper.isInitialized) {
+            fragmentCameraBinding.bottomSheetLayout.maxPosesValue.text =
+                poseLandmarkerHelper.maxPoses.toString()
             fragmentCameraBinding.bottomSheetLayout.detectionThresholdValue.text =
                 String.format(
                     Locale.US,
@@ -298,10 +320,18 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     // Initialize CameraX, and prepare to bind the camera use cases
     private fun setUpCamera() {
+        if (_fragmentCameraBinding == null) {
+            return
+        }
+
         val cameraProviderFuture =
             ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
             {
+                if (_fragmentCameraBinding == null || !isAdded) {
+                    return@addListener
+                }
+
                 // CameraProvider
                 cameraProvider = cameraProviderFuture.get()
 
@@ -381,6 +411,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     ) {
         activity?.runOnUiThread {
             if (_fragmentCameraBinding != null) {
+                val bestMatch = viewModel.findBestMatchingReference(resultBundle.results.first())
                 fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal.text =
                     String.format("%d ms", resultBundle.inferenceTime)
 
@@ -394,6 +425,11 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
                 // Force a redraw
                 fragmentCameraBinding.overlay.invalidate()
+                updateMatchStatus(
+                    matchName = bestMatch.reference?.name,
+                    distance = bestMatch.distance,
+                    isMatch = bestMatch.isMatch
+                )
             }
         }
     }
@@ -406,6 +442,25 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     PoseLandmarkerHelper.DELEGATE_CPU, false
                 )
             }
+            updateMatchStatus(null, Float.MAX_VALUE, false)
+        }
+    }
+
+    private fun updateMatchStatus(
+        matchName: String?,
+        distance: Float,
+        isMatch: Boolean
+    ) {
+        if (_fragmentCameraBinding == null) {
+            return
+        }
+
+        fragmentCameraBinding.tvMatchStatus.text = if (matchName != null && isMatch) {
+            getString(R.string.camera_match_found, matchName)
+        } else if (matchName != null && distance != Float.MAX_VALUE) {
+            getString(R.string.camera_match_closest, matchName, distance)
+        } else {
+            getString(R.string.camera_match_none)
         }
     }
 }
