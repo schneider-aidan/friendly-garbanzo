@@ -35,14 +35,16 @@ import java.util.concurrent.ScheduledExecutorService
 import kotlinx.coroutines.launch
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import com.google.mediapipe.examples.poselandmarker.BluetoothViewModel
 
 class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
-    private lateinit var bluetoothManager: BluetoothManager
     private var _fragmentGalleryBinding: FragmentGalleryBinding? = null
     private val fragmentGalleryBinding
         get() = _fragmentGalleryBinding!!
     private lateinit var poseLandmarkerHelper: PoseLandmarkerHelper
     private val viewModel: MainViewModel by activityViewModels()
+    private val bluetoothViewModel: BluetoothViewModel by activityViewModels()
+    private val bluetoothManager get() = bluetoothViewModel.bluetoothManager
     private val poseReferenceAdapter = PoseReferenceAdapter()
 
     /** Blocking ML operations are performed using this executor */
@@ -95,7 +97,6 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        bluetoothManager = BluetoothManager(requireContext())
 
         fragmentGalleryBinding.poseReferenceList.apply {
             layoutManager = GridLayoutManager(requireContext(), 3)

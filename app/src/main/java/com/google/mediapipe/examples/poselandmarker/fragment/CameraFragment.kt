@@ -45,6 +45,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import android.os.CountDownTimer
+import com.google.mediapipe.examples.poselandmarker.BluetoothViewModel
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 
 class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
@@ -67,6 +71,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private var isDetectionActive = false
     private var countDownTimer: CountDownTimer? = null
+    private val bluetoothViewModel: BluetoothViewModel by activityViewModels()
+    private val bluetoothManager get() = bluetoothViewModel.bluetoothManager
 
     /** Blocking ML operations are performed using this executor */
     private lateinit var backgroundExecutor: ExecutorService
@@ -481,13 +487,41 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             override fun onTick(millisUntilFinished: Long) {
                 val secondsLeft = (millisUntilFinished / 1000).toInt() + 1
                 fragmentCameraBinding.tvCountdown.text = secondsLeft.toString()
+                successLED()
             }
 
             override fun onFinish() {
                 fragmentCameraBinding.tvCountdown.visibility = View.GONE
                 fragmentCameraBinding.btnStart.isEnabled = true
                 isDetectionActive = true
+                clearLED()
             }
         }.start()
+    }
+
+    private fun successLED() {
+        sendBluetoothSafe("1\n")
+    }
+
+    private fun clearLED() {
+        sendBluetoothSafe("0\n")
+    }
+
+    private fun sendBluetoothSafe(message: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(requireContext(), "Bluetooth permission missing", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            bluetoothManager.send(message)
+        } catch (e: SecurityException) {
+            Toast.makeText(requireContext(), "Bluetooth permission denied", Toast.LENGTH_SHORT).show()
+        }
     }
 }
