@@ -33,6 +33,8 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import kotlinx.coroutines.launch
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 
 class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private lateinit var bluetoothManager: BluetoothManager
@@ -120,7 +122,29 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 return@setOnClickListener
             }
 
-            //showBluetoothDevicePicker()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val connectGranted = ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) == PackageManager.PERMISSION_GRANTED
+
+                val scanGranted = ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.BLUETOOTH_SCAN
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (!connectGranted || !scanGranted) {
+                    requestBluetoothPermissions.launch(
+                        arrayOf(
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.BLUETOOTH_SCAN
+                        )
+                    )
+                    return@setOnClickListener
+                }
+            }
+
+            showBluetoothDevicePicker()
         }
 
         initBottomSheetControls()
@@ -141,34 +165,61 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun observeBluetoothStatus() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             bluetoothManager.status.collect { status ->
                 when (status) {
+                    is BluetoothManager.Status.IDLE -> {
+                        fragmentGalleryBinding.btnBluetooth.text = "Bluetooth Pairing"
+                        fragmentGalleryBinding.btnBluetooth.isEnabled = true
+                    }
+
                     is BluetoothManager.Status.CONNECTING -> {
-                        Toast.makeText(requireContext(), "Connecting...", Toast.LENGTH_SHORT).show()
+                        fragmentGalleryBinding.btnBluetooth.text = "Connecting..."
+                        fragmentGalleryBinding.btnBluetooth.isEnabled = false
                     }
 
                     is BluetoothManager.Status.CONNECTED -> {
+                        fragmentGalleryBinding.btnBluetooth.text =
+                            "Connected: ${status.deviceName ?: "ESP32"}"
+                        fragmentGalleryBinding.btnBluetooth.isEnabled = true
+
                         Toast.makeText(
                             requireContext(),
-                            "Connected to ${status.deviceName}",
+                            "Connected to ${status.deviceName ?: status.address}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
 
                     is BluetoothManager.Status.ERROR -> {
+                        fragmentGalleryBinding.btnBluetooth.text = "Bluetooth Pairing"
+                        fragmentGalleryBinding.btnBluetooth.isEnabled = true
+
                         Toast.makeText(
                             requireContext(),
                             status.message,
                             Toast.LENGTH_LONG
                         ).show()
                     }
-
-                    else -> Unit
                 }
             }
         }
     }
+
+    private val requestBluetoothPermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            val connectGranted = permissions[Manifest.permission.BLUETOOTH_CONNECT] == true
+            val scanGranted = permissions[Manifest.permission.BLUETOOTH_SCAN] == true
+
+            if (connectGranted && scanGranted) {
+                showBluetoothDevicePicker()
+            } else {
+                Toast.makeText(
+                    requireContext(),
+                    "Bluetooth permissions are required to connect",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
 
     private fun observePoseReferences() {
         lifecycleScope.launch {
@@ -437,33 +488,53 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) = Unit
 
-    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     private fun showBluetoothDevicePicker() {
-        if (!bluetoothManager.hasConnectPermission()) {
-            Toast.makeText(requireContext(), "Bluetooth permission missing", Toast.LENGTH_SHORT).show()
-            return
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val connectGranted = ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
 
-        val devices = bluetoothManager.getPairedDevices()
-        if (devices.isNullOrEmpty()) {
-            Toast.makeText(requireContext(), "No paired Bluetooth devices", Toast.LENGTH_SHORT).show()
-            return
-        }
+            val scanGranted = ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED
 
-        val deviceNames = devices.map { device -> "${device.name} (${device.address})" }.toTypedArray()
-        val deviceList = devices.toList()
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("Select ESP32 Device")
-            .setItems(deviceNames) { _, which ->
-                val selectedDevice = deviceList[which]
+            if (!connectGranted || !scanGranted) {
                 Toast.makeText(
                     requireContext(),
-                    "Connecting to ${selectedDevice.name}",
+                    "Bluetooth permissions missing",
                     Toast.LENGTH_SHORT
                 ).show()
-                bluetoothManager.connect(selectedDevice.address)
+                return
             }
-            .show()
+        }
+
+        try {
+            val devices = bluetoothManager.getPairedDevices()
+            if (devices.isNullOrEmpty()) {
+                Toast.makeText(requireContext(), "No paired Bluetooth devices", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val deviceList = devices.toList()
+            val deviceNames = deviceList.map {
+                "${it.name ?: "Unknown device"} (${it.address})"
+            }.toTypedArray()
+
+            AlertDialog.Builder(requireContext())
+                .setTitle("Select ESP32 Device")
+                .setItems(deviceNames) { _, which ->
+                    val selectedDevice = deviceList[which]
+                    bluetoothManager.connect(selectedDevice.address)
+                }
+                .show()
+        } catch (e: SecurityException) {
+            Toast.makeText(
+                requireContext(),
+                "Bluetooth permission denied: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 }
