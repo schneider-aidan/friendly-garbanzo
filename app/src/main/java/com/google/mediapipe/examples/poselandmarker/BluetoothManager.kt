@@ -17,6 +17,8 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import java.io.OutputStream
 import java.util.UUID
+import java.io.InputStream
+import kotlinx.coroutines.isActive
 
 class BluetoothManager(private val context: Context) {
 
@@ -31,6 +33,12 @@ class BluetoothManager(private val context: Context) {
 
     private val _status: MutableStateFlow<Status> = MutableStateFlow(Status.IDLE)
     val status: StateFlow<Status> = _status
+
+    private var input: InputStream? = null
+    private var readJob: Job? = null
+
+    private val _incomingMessage = MutableStateFlow<String?>(null)
+    val incomingMessage: StateFlow<String?> = _incomingMessage
 
     sealed class Status {
         object IDLE : Status()
@@ -96,6 +104,8 @@ class BluetoothManager(private val context: Context) {
 
                 s.connect()
                 out = s.outputStream
+                input = s.inputStream
+                startReading()
 
                 _status.value = Status.CONNECTED(device.name, device.address)
 
@@ -149,14 +159,36 @@ class BluetoothManager(private val context: Context) {
 
     fun disconnect() {
         connectJob?.cancel()
+        readJob?.cancel()
         safeClose()
         _status.value = Status.IDLE
     }
 
     private fun safeClose() {
+        try { input?.close() } catch (_: IOException) {}
+        input = null
         try { out?.close() } catch (_: IOException) {}
         out = null
         try { socket?.close() } catch (_: IOException) {}
         socket = null
+    }
+
+    private fun startReading() {
+        readJob?.cancel()
+
+        readJob = scope.launch {
+            try {
+                val reader = input?.bufferedReader() ?: return@launch
+
+                while (isActive) {
+                    val line = reader.readLine() ?: break
+                    _incomingMessage.value = line.trim()
+                }
+            } catch (e: IOException) {
+                _status.value = Status.ERROR("Read failed: ${e.message ?: "IOException"}")
+            } catch (e: Exception) {
+                _status.value = Status.ERROR("Read failed: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
     }
 }

@@ -49,6 +49,8 @@ import com.google.mediapipe.examples.poselandmarker.BluetoothViewModel
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
@@ -71,6 +73,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private var isDetectionActive = false
     private var countDownTimer: CountDownTimer? = null
+    private var motionTriggered = false
     private val bluetoothViewModel: BluetoothViewModel by activityViewModels()
     private val bluetoothManager get() = bluetoothViewModel.bluetoothManager
 
@@ -169,6 +172,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         // Attach listeners to UI control widgets
         initBottomSheetControls()
         updateMatchStatus(null, Float.MAX_VALUE, false)
+        observeBluetoothMessages()
     }
 
     private fun initBottomSheetControls() {
@@ -522,6 +526,25 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             bluetoothManager.send(message)
         } catch (e: SecurityException) {
             Toast.makeText(requireContext(), "Bluetooth permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun observeBluetoothMessages() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            bluetoothManager.incomingMessage.collect { message ->
+                when (message) {
+                    "IR_DETECTED" -> {
+                        if (!motionTriggered && _fragmentCameraBinding != null) {
+                            motionTriggered = true
+                            startCountdown()
+                        }
+                    }
+
+                    "IR_CLEAR" -> {
+                        motionTriggered = false
+                    }
+                }
+            }
         }
     }
 }
