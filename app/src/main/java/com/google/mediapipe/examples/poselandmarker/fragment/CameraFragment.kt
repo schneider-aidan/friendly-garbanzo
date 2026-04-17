@@ -35,11 +35,15 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.Navigation
+import com.google.mediapipe.examples.poselandmarker.BluetoothManager
 import com.google.mediapipe.examples.poselandmarker.PoseLandmarkerHelper
 import com.google.mediapipe.examples.poselandmarker.MainViewModel
+import com.google.mediapipe.examples.poselandmarker.PoseReference
+import com.google.mediapipe.examples.poselandmarker.PoseReferenceMatcher
 import com.google.mediapipe.examples.poselandmarker.R
 import com.google.mediapipe.examples.poselandmarker.databinding.FragmentCameraBinding
 import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -74,6 +78,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var isDetectionActive = false
     private var countDownTimer: CountDownTimer? = null
     private var motionTriggered = false
+    private var isPasswordAttemptActive = false
+    private var currentPasswordStepIndex = -1
     private val bluetoothViewModel: BluetoothViewModel by activityViewModels()
     private val bluetoothManager get() = bluetoothViewModel.bluetoothManager
 
@@ -116,6 +122,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     override fun onDestroyView() {
+        countDownTimer?.cancel()
         _fragmentCameraBinding = null
         super.onDestroyView()
 
@@ -151,7 +158,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
 
         fragmentCameraBinding.btnStart.setOnClickListener {
-            startCountdown()
+            beginPasswordAttempt()
         }
 
         // Create the PoseLandmarkerHelper that will handle the inference
@@ -172,6 +179,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         // Attach listeners to UI control widgets
         initBottomSheetControls()
         updateMatchStatus(null, Float.MAX_VALUE, false)
+        updatePasswordStatus(getString(R.string.camera_password_idle))
         observeBluetoothMessages()
     }
 
@@ -429,13 +437,14 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     ) {
         activity?.runOnUiThread {
             if (_fragmentCameraBinding != null) {
-                val bestMatch = viewModel.findBestMatchingReference(resultBundle.results.first())
+                val liveResult = resultBundle.results.first()
+                val bestMatch = viewModel.findBestMatchingReference(liveResult)
                 fragmentCameraBinding.bottomSheetLayout.inferenceTimeVal.text =
                     String.format("%d ms", resultBundle.inferenceTime)
 
                 // Pass necessary information to OverlayView for drawing on the canvas
                 fragmentCameraBinding.overlay.setResults(
-                    resultBundle.results.first(),
+                    liveResult,
                     resultBundle.inputImageHeight,
                     resultBundle.inputImageWidth,
                     RunningMode.LIVE_STREAM
@@ -443,11 +452,15 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
                 // Force a redraw
                 fragmentCameraBinding.overlay.invalidate()
-                updateMatchStatus(
-                    matchName = bestMatch.reference?.name,
-                    distance = bestMatch.distance,
-                    isMatch = bestMatch.isMatch
-                )
+                if (isDetectionActive && isPasswordAttemptActive) {
+                    evaluatePasswordStep(liveResult)
+                } else {
+                    updateMatchStatus(
+                        matchName = bestMatch.reference?.name,
+                        distance = bestMatch.distance,
+                        isMatch = bestMatch.isMatch
+                    )
+                }
             }
         }
     }
@@ -482,25 +495,154 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
-    private fun startCountdown() {
-        fragmentCameraBinding.btnStart.isEnabled = false
-        fragmentCameraBinding.tvCountdown.visibility = View.VISIBLE
+    private fun beginPasswordAttempt() {
+        when (bluetoothManager.status.value) {
+            is BluetoothManager.Status.CONNECTED -> Unit
+            else -> {
+                updatePasswordStatus(getString(R.string.camera_password_no_bluetooth))
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.camera_password_no_bluetooth),
+                    Toast.LENGTH_LONG
+                ).show()
+                return
+            }
+        }
 
+        if (viewModel.passwordReferenceIds.value.isEmpty()) {
+            updatePasswordStatus(getString(R.string.camera_password_not_set))
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.camera_password_not_set),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        resetPasswordAttemptState()
+        fragmentCameraBinding.btnStart.isEnabled = false
+        isPasswordAttemptActive = true
+        startStepCountdown(0)
+    }
+
+    private fun startStepCountdown(stepIndex: Int) {
+        val passwordIds = viewModel.passwordReferenceIds.value
+        if (stepIndex !in passwordIds.indices) {
+            completePasswordAttempt()
+            return
+        }
+
+        val expectedReference = findPoseReference(passwordIds[stepIndex])
+        if (expectedReference == null) {
+            failPasswordAttempt(getString(R.string.camera_password_missing_reference))
+            return
+        }
+
+        currentPasswordStepIndex = stepIndex
+        isDetectionActive = true
+        updatePasswordStatus(
+            getString(
+                R.string.camera_password_step_prompt,
+                stepIndex + 1,
+                passwordIds.size,
+                expectedReference.name
+            )
+        )
+        updateMatchStatus(expectedReference.name, Float.MAX_VALUE, false)
+
+        fragmentCameraBinding.tvCountdown.visibility = View.VISIBLE
         countDownTimer?.cancel()
         countDownTimer = object : CountDownTimer(3000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                val secondsLeft = (millisUntilFinished / 1000).toInt() + 1
+                val secondsLeft = ((millisUntilFinished + 999) / 1000).toInt()
                 fragmentCameraBinding.tvCountdown.text = secondsLeft.toString()
                 successLED()
             }
 
             override fun onFinish() {
                 fragmentCameraBinding.tvCountdown.visibility = View.GONE
-                fragmentCameraBinding.btnStart.isEnabled = true
-                isDetectionActive = true
-                clearLED()
+                failPasswordAttempt(getString(R.string.camera_password_incorrect))
             }
         }.start()
+    }
+
+    private fun evaluatePasswordStep(liveResult: PoseLandmarkerResult) {
+        val passwordIds = viewModel.passwordReferenceIds.value
+        if (currentPasswordStepIndex !in passwordIds.indices) {
+            return
+        }
+
+        val expectedReference = findPoseReference(passwordIds[currentPasswordStepIndex]) ?: run {
+            failPasswordAttempt(getString(R.string.camera_password_missing_reference))
+            return
+        }
+
+        val matchResult = PoseReferenceMatcher.findBestMatch(listOf(expectedReference), liveResult)
+        updateMatchStatus(
+            matchName = expectedReference.name,
+            distance = matchResult.distance,
+            isMatch = matchResult.isMatch
+        )
+
+        if (!matchResult.isMatch) {
+            return
+        }
+
+        countDownTimer?.cancel()
+        fragmentCameraBinding.tvCountdown.visibility = View.GONE
+        clearLED()
+        isDetectionActive = false
+
+        val nextStepIndex = currentPasswordStepIndex + 1
+        if (nextStepIndex >= passwordIds.size) {
+            completePasswordAttempt()
+        } else {
+            updatePasswordStatus(
+                getString(
+                    R.string.camera_password_step_captured,
+                    currentPasswordStepIndex + 1,
+                    passwordIds.size
+                )
+            )
+            startStepCountdown(nextStepIndex)
+        }
+    }
+
+    private fun completePasswordAttempt() {
+        sendUnlockSignal()
+        updatePasswordStatus(getString(R.string.camera_password_success))
+        updateMatchStatus(null, Float.MAX_VALUE, false)
+        resetPasswordAttemptState()
+    }
+
+    private fun failPasswordAttempt(message: String) {
+        updatePasswordStatus(message)
+        updateMatchStatus(null, Float.MAX_VALUE, false)
+        resetPasswordAttemptState()
+    }
+
+    private fun resetPasswordAttemptState() {
+        countDownTimer?.cancel()
+        countDownTimer = null
+        isDetectionActive = false
+        isPasswordAttemptActive = false
+        currentPasswordStepIndex = -1
+        if (_fragmentCameraBinding != null) {
+            fragmentCameraBinding.tvCountdown.visibility = View.GONE
+            fragmentCameraBinding.btnStart.isEnabled = true
+        }
+        clearLED()
+    }
+
+    private fun findPoseReference(referenceId: Long): PoseReference? {
+        return viewModel.poseReferences.value.firstOrNull { it.id == referenceId }
+    }
+
+    private fun updatePasswordStatus(message: String) {
+        if (_fragmentCameraBinding == null) {
+            return
+        }
+        fragmentCameraBinding.tvPasswordStatus.text = message
     }
 
     private fun successLED() {
@@ -509,6 +651,10 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun clearLED() {
         sendBluetoothSafe("0\n")
+    }
+
+    private fun sendUnlockSignal() {
+        sendBluetoothSafe("UNLOCK\n")
     }
 
     private fun sendBluetoothSafe(message: String) {
@@ -536,7 +682,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     "IR_DETECTED" -> {
                         if (!motionTriggered && _fragmentCameraBinding != null) {
                             motionTriggered = true
-                            startCountdown()
+                            beginPasswordAttempt()
                         }
                     }
 

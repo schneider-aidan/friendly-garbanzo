@@ -48,6 +48,21 @@
         android:textColor="@android:color/white"
         android:textSize="16sp" />
 
+    <TextView
+        android:id="@+id/tvPasswordStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="68dp"
+        android:background="#B3000000"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:text="@string/camera_password_idle"
+        android:textColor="@android:color/white"
+        android:textSize="14sp" />
+
     <include
         android:id="@+id/bottom_sheet_layout"
         layout="@layout/info_bottom_sheet" />
@@ -58,7 +73,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|bottom"
         android:layout_marginBottom="140dp"
-        android:text="Start" />
+        android:text="@string/camera_password_start" />
 
     <TextView
         android:id="@+id/tvCountdown"

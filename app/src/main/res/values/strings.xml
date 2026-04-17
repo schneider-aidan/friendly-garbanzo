@@ -56,9 +56,26 @@
     <string name="pose_reference_no_pose_found">No new pose was detected in the selected image(s).</string>
     <string name="pose_reference_limit_reached">The reference gallery already has 50 images.</string>
     <string name="pose_reference_slots_used">Only the next %1$d image(s) fit in the reference gallery.</string>
+    <string name="password_status_idle">No gesture password set</string>
+    <string name="password_status_setting">Setting password: %1$d / %2$d steps</string>
+    <string name="password_status_saved">Gesture password saved: %1$d / %2$d steps</string>
+    <string name="password_selection_started">Select images in the order you want for the password.</string>
+    <string name="password_selection_saved">Password sequence saved.</string>
+    <string name="password_max_length_reached">Password length is limited to %1$d images.</string>
+    <string name="finish_password">Finish Password</string>
+    <string name="set_password">Set Password</string>
     <string name="camera_match_none">No saved pose match</string>
     <string name="camera_match_found">Detected: %1$s</string>
     <string name="camera_match_closest">Closest: %1$s (distance %2$.3f)</string>
+    <string name="camera_password_start">Start</string>
+    <string name="camera_password_idle">Ready to start password check</string>
+    <string name="camera_password_no_bluetooth">No Bluetooth connection has been made.</string>
+    <string name="camera_password_not_set">No gesture password has been set yet.</string>
+    <string name="camera_password_step_prompt">Step %1$d of %2$d: match %3$s</string>
+    <string name="camera_password_step_captured">Step %1$d of %2$d matched</string>
+    <string name="camera_password_incorrect">Incorrect password</string>
+    <string name="camera_password_success">Gesture password correct. Unlock signal sent.</string>
+    <string name="camera_password_missing_reference">A saved password image is missing from the gallery.</string>
 
     <string-array name="delegate_spinner_titles">
         <item>CPU</item>

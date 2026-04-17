@@ -27,11 +27,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var _minPosePresenceConfidence: Float = PoseLandmarkerHelper
         .DEFAULT_POSE_PRESENCE_CONFIDENCE
     private val _poseReferences = MutableStateFlow(loadPoseReferences())
+    private val _passwordReferenceIds = MutableStateFlow(loadPasswordReferenceIds())
 
     val currentDelegate: Int get() = _delegate
     val currentModel: Int get() = _model
     val currentMaxPoses: Int get() = _maxPoses
     val poseReferences: StateFlow<List<PoseReference>> = _poseReferences.asStateFlow()
+    val passwordReferenceIds: StateFlow<List<Long>> = _passwordReferenceIds.asStateFlow()
     val currentMinPoseDetectionConfidence: Float
         get() =
             _minPoseDetectionConfidence
@@ -76,11 +78,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun removePoseReference(referenceId: Long) {
         val updatedReferences = _poseReferences.value.filterNot { it.id == referenceId }
         _poseReferences.value = renumberReferences(updatedReferences)
+        _passwordReferenceIds.value = _passwordReferenceIds.value.filterNot { it == referenceId }
         persistPoseReferences()
+        persistPasswordReferenceIds()
     }
 
     fun findBestMatchingReference(liveResult: PoseLandmarkerResult): PoseReferenceMatcher.MatchResult {
         return PoseReferenceMatcher.findBestMatch(_poseReferences.value, liveResult)
+    }
+
+    fun clearPassword() {
+        _passwordReferenceIds.value = emptyList()
+        persistPasswordReferenceIds()
+    }
+
+    fun appendPasswordReference(referenceId: Long): Boolean {
+        if (_passwordReferenceIds.value.size >= MAX_PASSWORD_LENGTH) {
+            return false
+        }
+
+        _passwordReferenceIds.value = _passwordReferenceIds.value + referenceId
+        persistPasswordReferenceIds()
+        return true
     }
 
     private fun loadPoseReferences(): List<PoseReference> {
@@ -111,6 +130,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return renumberReferences(loadedReferences)
     }
 
+    private fun loadPasswordReferenceIds(): List<Long> {
+        val json = preferences.getString(PASSWORD_REFERENCE_IDS_KEY, null) ?: return emptyList()
+        val jsonArray = JSONArray(json)
+        return buildList(jsonArray.length()) {
+            for (index in 0 until jsonArray.length()) {
+                add(jsonArray.getLong(index))
+            }
+        }
+    }
+
     private fun renumberReferences(references: List<PoseReference>): List<PoseReference> {
         return references.mapIndexed { index, reference ->
             reference.copy(name = "Image${index + 1}")
@@ -134,8 +163,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         preferences.edit().putString(POSE_REFERENCES_KEY, jsonArray.toString()).apply()
     }
 
+    private fun persistPasswordReferenceIds() {
+        preferences.edit()
+            .putString(PASSWORD_REFERENCE_IDS_KEY, JSONArray(_passwordReferenceIds.value).toString())
+            .apply()
+    }
+
     companion object {
         private const val PREFERENCE_NAME = "pose_reference_prefs"
         private const val POSE_REFERENCES_KEY = "pose_references"
+        private const val PASSWORD_REFERENCE_IDS_KEY = "password_reference_ids"
+        const val MAX_PASSWORD_LENGTH = 25
     }
 }

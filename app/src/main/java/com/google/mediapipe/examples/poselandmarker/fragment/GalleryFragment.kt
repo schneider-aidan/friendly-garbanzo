@@ -38,6 +38,7 @@ import androidx.core.content.ContextCompat
 import com.google.mediapipe.examples.poselandmarker.BluetoothViewModel
 
 class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
+    private var isSettingPassword = false
     private var _fragmentGalleryBinding: FragmentGalleryBinding? = null
     private val fragmentGalleryBinding
         get() = _fragmentGalleryBinding!!
@@ -105,11 +106,29 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         poseReferenceAdapter.onDeleteReference = { reference ->
             viewModel.removePoseReference(reference.id)
         }
+        poseReferenceAdapter.onSelectReference = { reference ->
+            if (isSettingPassword) {
+                val appended = viewModel.appendPasswordReference(reference.id)
+                if (!appended) {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(
+                            R.string.password_max_length_reached,
+                            MainViewModel.MAX_PASSWORD_LENGTH
+                        ),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
 
         fragmentGalleryBinding.fabGetContent.setOnClickListener {
             addPoseImages.launch(arrayOf("image/*"))
         }
 
+        fragmentGalleryBinding.btnSetPassword.setOnClickListener {
+            togglePasswordSelectionMode()
+        }
 
 
         fragmentGalleryBinding.btnBluetooth.setOnClickListener {
@@ -151,6 +170,9 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         initBottomSheetControls()
         observeBluetoothStatus()
         observePoseReferences()
+        observePasswordReferences()
+        updatePasswordButton()
+        updatePasswordStatus(viewModel.passwordReferenceIds.value.size)
     }
 
     override fun onDestroyView() {
@@ -233,6 +255,20 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     references.size,
                     PoseLandmarkerHelper.MAX_NUM_POSE_REFERENCES
                 )
+            }
+        }
+    }
+
+    private fun observePasswordReferences() {
+        lifecycleScope.launch {
+            viewModel.passwordReferenceIds.collect { passwordReferenceIds ->
+                poseReferenceAdapter.passwordStepLookup =
+                    passwordReferenceIds.mapIndexed { index, referenceId ->
+                        referenceId to (index + 1)
+                    }.toMap()
+                poseReferenceAdapter.isPasswordSelectionEnabled = isSettingPassword
+                poseReferenceAdapter.notifyDataSetChanged()
+                updatePasswordStatus(passwordReferenceIds.size)
             }
         }
     }
@@ -364,6 +400,56 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             String.format(Locale.US, "%.2f", viewModel.currentMinPosePresenceConfidence)
     }
 
+    private fun togglePasswordSelectionMode() {
+        isSettingPassword = !isSettingPassword
+
+        if (isSettingPassword) {
+            viewModel.clearPassword()
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.password_selection_started),
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.password_selection_saved),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        poseReferenceAdapter.isPasswordSelectionEnabled = isSettingPassword
+        poseReferenceAdapter.notifyDataSetChanged()
+        updatePasswordButton()
+        updatePasswordStatus(viewModel.passwordReferenceIds.value.size)
+    }
+
+    private fun updatePasswordButton() {
+        fragmentGalleryBinding.btnSetPassword.text = if (isSettingPassword) {
+            getString(R.string.finish_password)
+        } else {
+            getString(R.string.set_password)
+        }
+    }
+
+    private fun updatePasswordStatus(passwordLength: Int) {
+        fragmentGalleryBinding.passwordStatus.text = if (isSettingPassword) {
+            getString(
+                R.string.password_status_setting,
+                passwordLength,
+                MainViewModel.MAX_PASSWORD_LENGTH
+            )
+        } else if (passwordLength > 0) {
+            getString(
+                R.string.password_status_saved,
+                passwordLength,
+                MainViewModel.MAX_PASSWORD_LENGTH
+            )
+        } else {
+            getString(R.string.password_status_idle)
+        }
+    }
+
     private fun processPoseReferenceUris(uris: List<Uri>) {
         setUiEnabled(false)
         fragmentGalleryBinding.progress.visibility = View.VISIBLE
@@ -462,6 +548,7 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun setUiEnabled(enabled: Boolean) {
         fragmentGalleryBinding.fabGetContent.isEnabled = enabled
+        fragmentGalleryBinding.btnSetPassword.isEnabled = enabled
         fragmentGalleryBinding.bottomSheetLayout.maxPosesMinus.isEnabled = enabled
         fragmentGalleryBinding.bottomSheetLayout.maxPosesPlus.isEnabled = enabled
         fragmentGalleryBinding.bottomSheetLayout.detectionThresholdMinus.isEnabled = enabled
