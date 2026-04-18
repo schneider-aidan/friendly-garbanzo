@@ -520,6 +520,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         resetPasswordAttemptState()
         fragmentCameraBinding.btnStart.isEnabled = false
+        fragmentCameraBinding.btnStart.visibility = View.INVISIBLE
         isPasswordAttemptActive = true
         startStepCountdown(0)
     }
@@ -631,7 +632,9 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         currentPasswordStepIndex = -1
         if (_fragmentCameraBinding != null) {
             fragmentCameraBinding.tvCountdown.visibility = View.GONE
+            fragmentCameraBinding.tvCountdown.text = ""
             fragmentCameraBinding.btnStart.isEnabled = true
+            fragmentCameraBinding.btnStart.visibility = View.VISIBLE
         }
         clearLED()
     }
