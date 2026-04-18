@@ -101,6 +101,12 @@
                 android:layout_height="wrap_content"
                 android:text="Set Password" />
 
+            <Button
+                android:id="@+id/btnAudioPassword"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/audio_password_button" />
+
         </LinearLayout>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton

@@ -45,6 +45,8 @@ class PoseReferenceAdapter :
         ) {
             binding.poseReferenceImage.setImageURI(android.net.Uri.parse(reference.uriString))
             binding.poseReferenceName.text = reference.name
+            binding.deletePoseReference.visibility =
+                if (reference.isDefault) android.view.View.GONE else android.view.View.VISIBLE
             binding.deletePoseReference.setOnClickListener {
                 onDeleteReference?.invoke(reference)
             }

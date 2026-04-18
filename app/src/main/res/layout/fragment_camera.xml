@@ -72,8 +72,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="196dp"
+        android:text="@string/camera_password_start_gesture" />
+
+    <Button
+        android:id="@+id/btnStartAudioPassword"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
         android:layout_marginBottom="140dp"
-        android:text="@string/camera_password_start" />
+        android:text="@string/camera_password_start_audio" />
+
+    <Button
+        android:id="@+id/btnResetPasswords"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="84dp"
+        android:text="@string/camera_password_reset_button" />
 
     <TextView
         android:id="@+id/tvCountdown"

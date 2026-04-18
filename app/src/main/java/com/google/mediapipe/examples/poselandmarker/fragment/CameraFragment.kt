@@ -17,12 +17,15 @@ package com.google.mediapipe.examples.poselandmarker.fragment
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
+import android.graphics.Color
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
+import android.widget.Button
 import android.widget.Toast
 import androidx.camera.core.Preview
 import androidx.camera.core.CameraSelector
@@ -54,6 +57,12 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import kotlinx.coroutines.launch
 
 class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
@@ -80,11 +89,29 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var isPasswordAttemptActive = false
     private var currentPasswordStepIndex = -1
     private var latestLiveResult: PoseLandmarkerResult? = null
+    private var isGesturePasswordPassed = false
+    private var isAudioPasswordPassed = false
+    private var unlockSignalSent = false
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var isListeningForAudioPassword = false
     private val bluetoothViewModel: BluetoothViewModel by activityViewModels()
     private val bluetoothManager get() = bluetoothViewModel.bluetoothManager
 
     /** Blocking ML operations are performed using this executor */
     private lateinit var backgroundExecutor: ExecutorService
+    private val requestAudioPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                startAudioPasswordAttempt()
+            } else {
+                updatePasswordStatus(getString(R.string.audio_password_permission_denied))
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.audio_password_permission_denied),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
 
     override fun onResume() {
         super.onResume()
@@ -123,6 +150,8 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     override fun onDestroyView() {
         countDownTimer?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         _fragmentCameraBinding = null
         super.onDestroyView()
 
@@ -160,6 +189,12 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         fragmentCameraBinding.btnStart.setOnClickListener {
             beginPasswordAttempt()
         }
+        fragmentCameraBinding.btnStartAudioPassword.setOnClickListener {
+            ensureAudioPermissionAndStart()
+        }
+        fragmentCameraBinding.btnResetPasswords.setOnClickListener {
+            resetPasswordProgress()
+        }
 
         // Create the PoseLandmarkerHelper that will handle the inference
         backgroundExecutor.execute {
@@ -180,6 +215,7 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         initBottomSheetControls()
         updateMatchStatus(null, Float.MAX_VALUE, false)
         updatePasswordStatus(getString(R.string.camera_password_idle))
+        updatePasswordButtons()
         observeBluetoothMessages()
     }
 
@@ -495,6 +531,11 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun beginPasswordAttempt() {
+        if (isGesturePasswordPassed) {
+            updatePasswordStatus(getString(R.string.camera_gesture_already_passed))
+            return
+        }
+
         when (bluetoothManager.status.value) {
             is BluetoothManager.Status.CONNECTED -> Unit
             else -> {
@@ -520,7 +561,6 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         resetPasswordAttemptState()
         fragmentCameraBinding.btnStart.isEnabled = false
-        fragmentCameraBinding.btnStart.visibility = View.INVISIBLE
         isPasswordAttemptActive = true
         startStepCountdown(0)
     }
@@ -613,8 +653,12 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun completePasswordAttempt() {
-        sendUnlockSignal()
-        updatePasswordStatus(getString(R.string.camera_password_success))
+        isGesturePasswordPassed = true
+        updatePasswordButtons()
+        maybeUnlockAfterPasswordsPassed()
+        if (!unlockSignalSent) {
+            updatePasswordStatus(getString(R.string.camera_gesture_passed_waiting_audio))
+        }
         updateMatchStatus(null, Float.MAX_VALUE, false)
         resetPasswordAttemptState()
     }
@@ -634,7 +678,6 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             fragmentCameraBinding.tvCountdown.visibility = View.GONE
             fragmentCameraBinding.tvCountdown.text = ""
             fragmentCameraBinding.btnStart.isEnabled = true
-            fragmentCameraBinding.btnStart.visibility = View.VISIBLE
         }
         clearLED()
     }
@@ -660,6 +703,167 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun sendUnlockSignal() {
         sendBluetoothSafe("UNLOCK\n")
+    }
+
+    private fun ensureAudioPermissionAndStart() {
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            startAudioPasswordAttempt()
+        } else {
+            requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startAudioPasswordAttempt() {
+        if (isAudioPasswordPassed) {
+            updatePasswordStatus(getString(R.string.camera_audio_already_passed))
+            return
+        }
+
+        val savedPhrase = viewModel.audioPasswordPhrase.value
+        if (savedPhrase.isNullOrBlank()) {
+            updatePasswordStatus(getString(R.string.camera_audio_password_not_set))
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.camera_audio_password_not_set),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        if (!SpeechRecognizer.isRecognitionAvailable(requireContext())) {
+            updatePasswordStatus(getString(R.string.camera_audio_recognition_unavailable))
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.camera_audio_recognition_unavailable),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        if (isListeningForAudioPassword) {
+            return
+        }
+
+        speechRecognizer?.destroy()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext()).apply {
+            setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    isListeningForAudioPassword = true
+                    fragmentCameraBinding.btnStartAudioPassword.isEnabled = false
+                    updatePasswordStatus(getString(R.string.camera_audio_listening))
+                }
+
+                override fun onBeginningOfSpeech() = Unit
+
+                override fun onRmsChanged(rmsdB: Float) = Unit
+
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+
+                override fun onEndOfSpeech() = Unit
+
+                override fun onError(error: Int) {
+                    isListeningForAudioPassword = false
+                    fragmentCameraBinding.btnStartAudioPassword.isEnabled = true
+                    updatePasswordStatus(getString(R.string.camera_audio_password_incorrect))
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val matches = results
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        .orEmpty()
+                    val matched = matches.any { normalizePhrase(it) == normalizePhrase(savedPhrase) }
+
+                    isListeningForAudioPassword = false
+                    fragmentCameraBinding.btnStartAudioPassword.isEnabled = true
+
+                    if (matched) {
+                        isAudioPasswordPassed = true
+                        updatePasswordButtons()
+                        maybeUnlockAfterPasswordsPassed()
+                        if (!unlockSignalSent) {
+                            updatePasswordStatus(getString(R.string.camera_audio_passed_waiting_gesture))
+                        }
+                    } else {
+                        updatePasswordStatus(getString(R.string.camera_audio_password_incorrect))
+                    }
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) = Unit
+
+                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            })
+        }
+
+        val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+        }
+
+        speechRecognizer?.startListening(intent)
+    }
+
+    private fun maybeUnlockAfterPasswordsPassed() {
+        if (isGesturePasswordPassed && isAudioPasswordPassed && !unlockSignalSent) {
+            unlockSignalSent = true
+            sendUnlockSignal()
+            updatePasswordStatus(getString(R.string.camera_both_passwords_success))
+        }
+    }
+
+    private fun resetPasswordProgress() {
+        resetPasswordAttemptState()
+        speechRecognizer?.cancel()
+        isListeningForAudioPassword = false
+        isGesturePasswordPassed = false
+        isAudioPasswordPassed = false
+        unlockSignalSent = false
+        fragmentCameraBinding.btnStartAudioPassword.isEnabled = true
+        updatePasswordButtons()
+        updatePasswordStatus(getString(R.string.camera_password_reset))
+        updateMatchStatus(null, Float.MAX_VALUE, false)
+    }
+
+    private fun updatePasswordButtons() {
+        if (_fragmentCameraBinding == null) {
+            return
+        }
+        applyButtonState(
+            fragmentCameraBinding.btnStart,
+            getString(R.string.camera_password_start_gesture),
+            isGesturePasswordPassed
+        )
+        applyButtonState(
+            fragmentCameraBinding.btnStartAudioPassword,
+            getString(R.string.camera_password_start_audio),
+            isAudioPasswordPassed
+        )
+    }
+
+    private fun applyButtonState(button: Button, label: String, isPassed: Boolean) {
+        val indicator = if (isPassed) " \u2713" else " \u2717"
+        val fullText = label + indicator
+        val spannable = SpannableString(fullText)
+        spannable.setSpan(
+            ForegroundColorSpan(if (isPassed) Color.parseColor("#1B8E3E") else Color.parseColor("#C62828")),
+            fullText.length - 1,
+            fullText.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        button.text = spannable
+    }
+
+    private fun normalizePhrase(value: String): String {
+        return value
+            .lowercase(Locale.US)
+            .replace(Regex("[^a-z0-9 ]"), " ")
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
     }
 
     private fun sendBluetoothSafe(message: String) {

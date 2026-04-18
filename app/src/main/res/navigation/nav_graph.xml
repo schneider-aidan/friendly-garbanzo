@@ -47,5 +47,15 @@
     <fragment
         android:id="@+id/gallery_fragment"
         android:name="com.google.mediapipe.examples.poselandmarker.fragment.GalleryFragment"
-        android:label="GalleryFragment" />
+        android:label="GalleryFragment">
+
+        <action
+            android:id="@+id/action_gallery_to_audio_password"
+            app:destination="@id/audio_password_fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/audio_password_fragment"
+        android:name="com.google.mediapipe.examples.poselandmarker.fragment.AudioPasswordFragment"
+        android:label="AudioPasswordFragment" />
 </navigation>

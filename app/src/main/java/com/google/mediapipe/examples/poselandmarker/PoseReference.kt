@@ -6,5 +6,6 @@ data class PoseReference(
     val uriString: String,
     val detectedPoseCount: Int,
     val inferenceTimeMs: Long,
-    val landmarkEmbedding: List<Float>
+    val landmarkEmbedding: List<Float>,
+    val isDefault: Boolean = false
 )

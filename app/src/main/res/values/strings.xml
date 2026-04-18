@@ -68,6 +68,9 @@
     <string name="camera_match_found">Detected: %1$s</string>
     <string name="camera_match_closest">Closest: %1$s (distance %2$.3f)</string>
     <string name="camera_password_start">Start</string>
+    <string name="camera_password_start_gesture">Start Gesture Password</string>
+    <string name="camera_password_start_audio">Start Audio Password</string>
+    <string name="camera_password_reset_button">Reset Password Checks</string>
     <string name="camera_password_idle">Ready to start password check</string>
     <string name="camera_password_no_bluetooth">No Bluetooth connection has been made.</string>
     <string name="camera_password_not_set">No gesture password has been set yet.</string>
@@ -76,6 +79,37 @@
     <string name="camera_password_incorrect">Incorrect password</string>
     <string name="camera_password_success">Gesture password correct. Unlock signal sent.</string>
     <string name="camera_password_missing_reference">A saved password image is missing from the gallery.</string>
+    <string name="camera_gesture_already_passed">Gesture password already passed.</string>
+    <string name="camera_audio_already_passed">Audio password already passed.</string>
+    <string name="camera_gesture_passed_waiting_audio">Gesture password passed. Complete the audio password next.</string>
+    <string name="camera_audio_passed_waiting_gesture">Audio password passed. Complete the gesture password next.</string>
+    <string name="camera_both_passwords_success">Both passwords passed. Unlock signal sent.</string>
+    <string name="camera_password_reset">Gesture and audio password checks were reset.</string>
+    <string name="camera_audio_password_not_set">No audio password has been set yet.</string>
+    <string name="camera_audio_listening">Listening for audio password...</string>
+    <string name="camera_audio_password_incorrect">Incorrect audio password.</string>
+    <string name="camera_audio_recognition_unavailable">Speech recognition is not available on this device.</string>
+    <string name="audio_password_button">Audio Password</string>
+    <string name="audio_password_title">Audio Password</string>
+    <string name="audio_password_record_button">Record audio password</string>
+    <string name="audio_password_play_button">Listen to Saved Audio Password</string>
+    <string name="audio_password_status_empty">No audio password recorded yet.</string>
+    <string name="audio_password_status_saved">An audio password is saved.</string>
+    <string name="audio_password_status_saved_phrase">Saved audio password words: %1$s</string>
+    <string name="audio_password_status_recording">Recording audio password...</string>
+    <string name="audio_password_level_idle">Audio level will appear here while recording.</string>
+    <string name="audio_password_level_format">Audio level: %1$d%%</string>
+    <string name="audio_password_recording_started">Recording started.</string>
+    <string name="audio_password_recording_saved">Audio password saved.</string>
+    <string name="audio_password_invalid_input">Invalid audio password input. Say at least one recognized word.</string>
+    <string name="audio_password_transcript_missing">Audio was saved, but the spoken words could not be recognized. Please try recording again.</string>
+    <string name="audio_password_recording_failed">Could not record audio password. %1$s</string>
+    <string name="audio_password_none_saved">No saved audio password to play.</string>
+    <string name="audio_password_playback_failed">Could not play the saved audio password. %1$s</string>
+    <string name="audio_password_permission_denied">Microphone permission is required to record an audio password.</string>
+    <string name="audio_password_camera_pending">Audio password entry is not wired into the camera flow yet.</string>
+    <string name="default_pose_cannot_be_deleted">The built-in Default pose cannot be deleted.</string>
+    <string name="default_pose_not_detected">The built-in Default pose image did not produce a detectable pose.</string>
 
     <string-array name="delegate_spinner_titles">
         <item>CPU</item>

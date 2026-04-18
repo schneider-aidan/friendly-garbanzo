@@ -19,6 +19,7 @@ import androidx.annotation.RequiresPermission
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import com.google.mediapipe.examples.poselandmarker.BluetoothManager
 import com.google.mediapipe.examples.poselandmarker.MainViewModel
@@ -38,6 +39,7 @@ import androidx.core.content.ContextCompat
 import com.google.mediapipe.examples.poselandmarker.BluetoothViewModel
 
 class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
+    private var isAddingDefaultPose = false
     private var isSettingPassword = false
     private var _fragmentGalleryBinding: FragmentGalleryBinding? = null
     private val fragmentGalleryBinding
@@ -104,7 +106,15 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             adapter = poseReferenceAdapter
         }
         poseReferenceAdapter.onDeleteReference = { reference ->
-            viewModel.removePoseReference(reference.id)
+            if (reference.isDefault) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.default_pose_cannot_be_deleted),
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                viewModel.removePoseReference(reference.id)
+            }
         }
         poseReferenceAdapter.onSelectReference = { reference ->
             if (isSettingPassword) {
@@ -124,6 +134,10 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         fragmentGalleryBinding.fabGetContent.setOnClickListener {
             addPoseImages.launch(arrayOf("image/*"))
+        }
+
+        fragmentGalleryBinding.btnAudioPassword.setOnClickListener {
+            findNavController().navigate(R.id.action_gallery_to_audio_password)
         }
 
         fragmentGalleryBinding.btnSetPassword.setOnClickListener {
@@ -173,6 +187,7 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         observePasswordReferences()
         updatePasswordButton()
         updatePasswordStatus(viewModel.passwordReferenceIds.value.size)
+        ensureDefaultPoseReference()
     }
 
     override fun onDestroyView() {
@@ -525,6 +540,77 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
+    private fun ensureDefaultPoseReference() {
+        if (viewModel.poseReferences.value.any { it.isDefault } || isAddingDefaultPose) {
+            return
+        }
+
+        val defaultDrawableId = resources.getIdentifier(
+            DEFAULT_POSE_DRAWABLE_NAME,
+            "drawable",
+            requireContext().packageName
+        )
+        if (defaultDrawableId == 0) {
+            return
+        }
+
+        val bitmap = loadBitmapFromDrawable(defaultDrawableId) ?: return
+        isAddingDefaultPose = true
+        setUiEnabled(false)
+        fragmentGalleryBinding.progress.visibility = View.VISIBLE
+
+        backgroundExecutor.execute {
+            poseLandmarkerHelper =
+                PoseLandmarkerHelper(
+                    context = requireContext(),
+                    runningMode = RunningMode.IMAGE,
+                    maxPoses = viewModel.currentMaxPoses,
+                    currentModel = viewModel.currentModel,
+                    minPoseDetectionConfidence = viewModel.currentMinPoseDetectionConfidence,
+                    minPoseTrackingConfidence = viewModel.currentMinPoseTrackingConfidence,
+                    minPosePresenceConfidence = viewModel.currentMinPosePresenceConfidence,
+                    currentDelegate = viewModel.currentDelegate
+                )
+
+            val resultBundle = poseLandmarkerHelper.detectImage(bitmap)
+            val poseResult = resultBundle?.results?.firstOrNull()
+            val defaultReference =
+                if (poseResult != null && poseResult.landmarks().isNotEmpty()) {
+                    PoseReference(
+                        id = DEFAULT_POSE_REFERENCE_ID,
+                        name = MainViewModel.DEFAULT_POSE_REFERENCE_NAME,
+                        uriString = resourceUri(defaultDrawableId).toString(),
+                        detectedPoseCount = poseResult.landmarks().size,
+                        inferenceTimeMs = resultBundle.inferenceTime,
+                        landmarkEmbedding = PoseReferenceMatcher.createEmbedding(
+                            poseResult.landmarks().first()
+                        ),
+                        isDefault = true
+                    )
+                } else {
+                    null
+                }
+
+            poseLandmarkerHelper.clearPoseLandmarker()
+
+            activity?.runOnUiThread {
+                isAddingDefaultPose = false
+                fragmentGalleryBinding.progress.visibility = View.GONE
+                setUiEnabled(true)
+
+                if (defaultReference != null) {
+                    viewModel.addPoseReferences(listOf(defaultReference))
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.default_pose_not_detected),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
     private fun loadBitmapFromUri(uri: Uri): Bitmap? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val source = ImageDecoder.createSource(requireActivity().contentResolver, uri)
@@ -533,6 +619,25 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             MediaStore.Images.Media.getBitmap(requireActivity().contentResolver, uri)
                 ?.copy(Bitmap.Config.ARGB_8888, true)
         }
+    }
+
+    private fun loadBitmapFromDrawable(drawableId: Int): Bitmap? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = ImageDecoder.createSource(resources, drawableId)
+            ImageDecoder.decodeBitmap(source).copy(Bitmap.Config.ARGB_8888, true)
+        } else {
+            MediaStore.Images.Media.getBitmap(
+                requireActivity().contentResolver,
+                resourceUri(drawableId)
+            )?.copy(Bitmap.Config.ARGB_8888, true)
+        }
+    }
+
+    private fun resourceUri(drawableId: Int): Uri {
+        return Uri.parse(
+            "${android.content.ContentResolver.SCHEME_ANDROID_RESOURCE}://" +
+                "${requireContext().packageName}/$drawableId"
+        )
     }
 
     private fun persistReadPermission(uri: Uri) {
@@ -624,5 +729,10 @@ class GalleryFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 Toast.LENGTH_LONG
             ).show()
         }
+    }
+
+    companion object {
+        private const val DEFAULT_POSE_REFERENCE_ID = -1L
+        private const val DEFAULT_POSE_DRAWABLE_NAME = "win_20260324_17_10_54_pro"
     }
 }

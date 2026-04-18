@@ -28,12 +28,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .DEFAULT_POSE_PRESENCE_CONFIDENCE
     private val _poseReferences = MutableStateFlow(loadPoseReferences())
     private val _passwordReferenceIds = MutableStateFlow(loadPasswordReferenceIds())
+    private val _audioPasswordPhrase = MutableStateFlow(loadAudioPasswordPhrase())
 
     val currentDelegate: Int get() = _delegate
     val currentModel: Int get() = _model
     val currentMaxPoses: Int get() = _maxPoses
     val poseReferences: StateFlow<List<PoseReference>> = _poseReferences.asStateFlow()
     val passwordReferenceIds: StateFlow<List<Long>> = _passwordReferenceIds.asStateFlow()
+    val audioPasswordPhrase: StateFlow<String?> = _audioPasswordPhrase.asStateFlow()
     val currentMinPoseDetectionConfidence: Float
         get() =
             _minPoseDetectionConfidence
@@ -102,6 +104,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return true
     }
 
+    fun setAudioPasswordPhrase(phrase: String?) {
+        _audioPasswordPhrase.value = phrase?.takeIf { it.isNotBlank() }
+        persistAudioPasswordPhrase()
+    }
+
     private fun loadPoseReferences(): List<PoseReference> {
         val json = preferences.getString(POSE_REFERENCES_KEY, null) ?: return emptyList()
         val jsonArray = JSONArray(json)
@@ -122,7 +129,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         uriString = item.getString("uriString"),
                         detectedPoseCount = item.getInt("detectedPoseCount"),
                         inferenceTimeMs = item.getLong("inferenceTimeMs"),
-                        landmarkEmbedding = embedding
+                        landmarkEmbedding = embedding,
+                        isDefault = item.optBoolean("isDefault", false)
                     )
                 )
             }
@@ -140,9 +148,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun loadAudioPasswordPhrase(): String? {
+        return preferences.getString(AUDIO_PASSWORD_PHRASE_KEY, DEFAULT_AUDIO_PASSWORD_PHRASE)
+    }
+
     private fun renumberReferences(references: List<PoseReference>): List<PoseReference> {
-        return references.mapIndexed { index, reference ->
-            reference.copy(name = "Image${index + 1}")
+        var imageIndex = 1
+        return references.map { reference ->
+            if (reference.isDefault) {
+                reference.copy(name = DEFAULT_POSE_REFERENCE_NAME)
+            } else {
+                reference.copy(name = "Image${imageIndex++}")
+            }
         }
     }
 
@@ -156,6 +173,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 put("detectedPoseCount", reference.detectedPoseCount)
                 put("inferenceTimeMs", reference.inferenceTimeMs)
                 put("landmarkEmbedding", JSONArray(reference.landmarkEmbedding))
+                put("isDefault", reference.isDefault)
             }
             jsonArray.put(jsonObject)
         }
@@ -169,10 +187,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .apply()
     }
 
+    private fun persistAudioPasswordPhrase() {
+        preferences.edit()
+            .putString(AUDIO_PASSWORD_PHRASE_KEY, _audioPasswordPhrase.value)
+            .apply()
+    }
+
     companion object {
         private const val PREFERENCE_NAME = "pose_reference_prefs"
         private const val POSE_REFERENCES_KEY = "pose_references"
         private const val PASSWORD_REFERENCE_IDS_KEY = "password_reference_ids"
+        private const val AUDIO_PASSWORD_PHRASE_KEY = "audio_password_phrase"
+        const val DEFAULT_POSE_REFERENCE_NAME = "Default"
+        const val DEFAULT_AUDIO_PASSWORD_PHRASE = "hello"
         const val MAX_PASSWORD_LENGTH = 25
     }
 }
