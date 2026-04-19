@@ -5,7 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.media.MediaPlayer
-import android.media.MediaRecorder
+//import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -33,41 +33,41 @@ class AudioPasswordFragment : Fragment() {
     private val binding
         get() = _binding!!
 
-    private var mediaRecorder: MediaRecorder? = null
+    // private var mediaRecorder: MediaRecorder? = null
     private var mediaPlayer: MediaPlayer? = null
     private var isRecording = false
     private var speechRecognizer: SpeechRecognizer? = null
     private var pendingRecognizedPhrase: String? = null
     private val levelHandler = Handler(Looper.getMainLooper())
     private val viewModel: MainViewModel by activityViewModels()
-    private val levelUpdater = object : Runnable {
-        override fun run() {
-            val recorder = mediaRecorder
-            if (!isRecording || recorder == null || _binding == null) {
-                return
-            }
-
-            val amplitude = try {
-                recorder.maxAmplitude
-            } catch (_: IllegalStateException) {
-                0
-            }
-            val normalizedLevel = if (amplitude > 0) {
-                ((log10(amplitude.toDouble()) / log10(32767.0)) * 100.0)
-                    .coerceIn(0.0, 100.0)
-                    .roundToInt()
-            } else {
-                0
-            }
-
-            binding.audioLevelIndicator.progress = normalizedLevel
-            binding.tvAudioLevel.text = getString(
-                R.string.audio_password_level_format,
-                normalizedLevel
-            )
-            levelHandler.postDelayed(this, AUDIO_LEVEL_REFRESH_MS)
-        }
-    }
+//    private val levelUpdater = object : Runnable {
+//        override fun run() {
+//            val recorder = mediaRecorder
+//            if (!isRecording || recorder == null || _binding == null) {
+//                return
+//            }
+//
+//            val amplitude = try {
+//                recorder.maxAmplitude
+//            } catch (_: IllegalStateException) {
+//                0
+//            }
+//            val normalizedLevel = if (amplitude > 0) {
+//                ((log10(amplitude.toDouble()) / log10(32767.0)) * 100.0)
+//                    .coerceIn(0.0, 100.0)
+//                    .roundToInt()
+//            } else {
+//                0
+//            }
+//
+//            binding.audioLevelIndicator.progress = normalizedLevel
+//            binding.tvAudioLevel.text = getString(
+//                R.string.audio_password_level_format,
+//                normalizedLevel
+//            )
+//            levelHandler.postDelayed(this, AUDIO_LEVEL_REFRESH_MS)
+//        }
+//    }
 
     private val requestAudioPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -111,14 +111,16 @@ class AudioPasswordFragment : Fragment() {
 
     override fun onStop() {
         super.onStop()
-        if (isRecording) {
-            stopRecording()
-        }
-        releasePlayer()
+        ensureAudioPermissionAndRecord()
+//        super.onStop()
+//        if (isRecording) {
+//            stopRecording()
+//        }
+//        releasePlayer()
     }
 
     override fun onDestroyView() {
-        releaseRecorder()
+        //releaseRecorder()
         releasePlayer()
         speechRecognizer?.destroy()
         speechRecognizer = null
@@ -140,58 +142,117 @@ class AudioPasswordFragment : Fragment() {
     }
 
     private fun startRecording() {
-        releasePlayer()
-        releaseRecorder()
-        startSpeechRecognition()
-        pendingRecognizedPhrase = null
 
-        try {
-            val outputFile = audioPasswordFile()
-            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(requireContext())
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }.apply {
-                setAudioSource(MediaRecorder.AudioSource.MIC)
-                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                setOutputFile(outputFile.absolutePath)
-                prepare()
-                start()
-            }
-
-            isRecording = true
-            updateUi()
-            startLevelUpdates()
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.audio_password_recording_started),
-                Toast.LENGTH_SHORT
-            ).show()
-        } catch (exception: Exception) {
-            speechRecognizer?.cancel()
-            releaseRecorder()
-            isRecording = false
-            stopLevelUpdates()
-            updateUi()
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.audio_password_recording_failed, exception.message ?: ""),
-                Toast.LENGTH_LONG
-            ).show()
+        if (!SpeechRecognizer.isRecognitionAvailable(requireContext())) {
+            Toast.makeText(requireContext(), "Speech recognition not available", Toast.LENGTH_LONG).show()
+            return
         }
+
+        speechRecognizer?.destroy()
+
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(requireContext()).apply {
+
+            setRecognitionListener(object : RecognitionListener {
+
+                override fun onReadyForSpeech(params: Bundle?) {
+                    binding.tvAudioPasswordStatus.text = "Listening..."
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val matches = results
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        .orEmpty()
+
+                    if (matches.isNotEmpty()) {
+                        val spoken = normalizePhrase(matches[0])
+
+                        // ✅ SAVE PASSWORD HERE
+                        viewModel.setAudioPasswordPhrase(spoken)
+
+                        binding.tvAudioPasswordStatus.text =
+                            "Saved: $spoken"
+
+                        Toast.makeText(requireContext(), "Password set!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        binding.tvAudioPasswordStatus.text = "Didn't catch that, try again"
+                    }
+                }
+
+                override fun onError(error: Int) {
+                    binding.tvAudioPasswordStatus.text = "Error detecting speech, try again"
+                }
+
+                override fun onBeginningOfSpeech() {}
+                override fun onEndOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        }
+
+        val intent = android.content.Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        }
+
+        speechRecognizer?.startListening(intent)
     }
+
+//    private fun startRecording() {
+//        releasePlayer()
+//        releaseRecorder()
+//        startSpeechRecognition()
+//        pendingRecognizedPhrase = null
+//
+//        try {
+//            val outputFile = audioPasswordFile()
+//            mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+//                MediaRecorder(requireContext())
+//            } else {
+//                @Suppress("DEPRECATION")
+//                MediaRecorder()
+//            }.apply {
+//                setAudioSource(MediaRecorder.AudioSource.MIC)
+//                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+//                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+//                setOutputFile(outputFile.absolutePath)
+//                prepare()
+//                start()
+//            }
+//
+//            isRecording = true
+//            updateUi()
+//            startLevelUpdates()
+//            Toast.makeText(
+//                requireContext(),
+//                getString(R.string.audio_password_recording_started),
+//                Toast.LENGTH_SHORT
+//            ).show()
+//        } catch (exception: Exception) {
+//            speechRecognizer?.cancel()
+//            releaseRecorder()
+//            isRecording = false
+//            stopLevelUpdates()
+//            updateUi()
+//            Toast.makeText(
+//                requireContext(),
+//                getString(R.string.audio_password_recording_failed, exception.message ?: ""),
+//                Toast.LENGTH_LONG
+//            ).show()
+//        }
+//    }
 
     private fun stopRecording() {
         try {
             speechRecognizer?.stopListening()
-            mediaRecorder?.stop()
+            //mediaRecorder?.stop()
         } catch (_: RuntimeException) {
             audioPasswordFile().delete()
         } finally {
-            stopLevelUpdates()
-            releaseRecorder()
+            //stopLevelUpdates()
+            //releaseRecorder()
             isRecording = false
             updateUi()
         }
@@ -280,10 +341,10 @@ class AudioPasswordFragment : Fragment() {
         return File(requireContext().filesDir, AUDIO_PASSWORD_FILENAME)
     }
 
-    private fun releaseRecorder() {
-        mediaRecorder?.release()
-        mediaRecorder = null
-    }
+//    private fun releaseRecorder() {
+//        mediaRecorder?.release()
+//        mediaRecorder = null
+//    }
 
     private fun releasePlayer() {
         mediaPlayer?.release()
@@ -336,16 +397,16 @@ class AudioPasswordFragment : Fragment() {
         speechRecognizer?.startListening(intent)
     }
 
-    private fun startLevelUpdates() {
-        binding.audioLevelIndicator.progress = 0
-        binding.tvAudioLevel.text = getString(R.string.audio_password_level_format, 0)
-        levelHandler.removeCallbacks(levelUpdater)
-        levelHandler.post(levelUpdater)
-    }
+//    private fun startLevelUpdates() {
+//        binding.audioLevelIndicator.progress = 0
+//        binding.tvAudioLevel.text = getString(R.string.audio_password_level_format, 0)
+//        levelHandler.removeCallbacks(levelUpdater)
+//        levelHandler.post(levelUpdater)
+//    }
 
-    private fun stopLevelUpdates() {
-        levelHandler.removeCallbacks(levelUpdater)
-    }
+//    private fun stopLevelUpdates() {
+//        levelHandler.removeCallbacks(levelUpdater)
+//    }
 
     companion object {
         private const val AUDIO_PASSWORD_FILENAME = "audio_password.m4a"

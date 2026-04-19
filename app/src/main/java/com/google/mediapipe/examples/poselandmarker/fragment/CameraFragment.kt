@@ -902,4 +902,14 @@ class CameraFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             }
         }
     }
+
+    private fun pausePoseDetection() {
+        imageAnalyzer?.clearAnalyzer()
+    }
+
+    private fun resumePoseDetection() {
+        imageAnalyzer?.setAnalyzer(backgroundExecutor) { image ->
+            detectPose(image)
+        }
+    }
 }
