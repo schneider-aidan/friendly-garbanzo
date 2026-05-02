@@ -41,3 +41,11 @@ Note - To reset after failed attempt or after successfully entering both the use
 For testing there are two arduino files.
 PoseLandmark.ino includes the sleepmode - but entering sleep mode seems to disconnect the bluetooth requiring the user to reconnect everytime.
 For testing, it can be better to use LockingMechanism.ino which does not include the sleep mode.
+
+Circuit Info:
+Use the following pins for setting up the ESP32
+relayPin = 22
+irSensorPin = 33
+
+The PIR sensor is connected to the 5 V.
+The solenoid Lock is connected to the Relay.
