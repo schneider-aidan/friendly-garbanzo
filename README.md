@@ -14,15 +14,15 @@ The following were bought on Amazon - links attached
 
 # [12 V Power Supply](https://www.amazon.com/JOVNO-100-240V-Converter-Transformer-5-5x2-5mm/dp/B0875WMYCX/ref=sr_1_1?crid=2RZW6C31N3E0X&dib=eyJ2IjoiMSJ9.ry-AHtMszPw8F-QfMIxi-pToDTYiqI7yrikY8lQWOKDQQhGDXFPEU40IOHNa3LK_OFD8BJu7_Rr6iisXk41qyh1mP9G7XJjWylH7HOS8NPicGu7EPz9iRci0ud8EkgAa2LGlxkULnbhGCAh7EFCJhJw3bUdBQSWE6Qi-fikUV9Y03j7x5at8YLFYmM8DX2MsgNfoGEvD21QgMkFYOc1JwwCo0eTe_Q1d_gsDy8m5P8E.6FVpiN-1KiA4RUWlzrXWukRDDbgkbUlr-N7hMzW1uug&dib_tag=se&keywords=12%2Bvolt%2Bwall%2Barduino&qid=1777733108&sprefix=12%2Bvolt%2Bwall%2Barduino%2Caps%2C120&sr=8-1&th=1)
 <img src="https://m.media-amazon.com/images/I/51Om-0UEPYL._AC_SL1000_.jpg" width="250" height="250">
-The following were provided by the instructor:
-* ESP32
-* PIR sensor
-* Jumper wires
+The following were provided by the instructor:<br/>
+- ESP32<br/>
+- PIR sensor<br/>
+- Jumper wires<br/>
 
 Required Software:
 [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/android)
 
-Directions:
+## Directions:
 1. Open the project folder in Android Studio and install app onto android app.
 2. Assemble ESP32, PIR sensor, Relay, and Solenoid Lock.
 3. Install ESP32 with Arduino code.
