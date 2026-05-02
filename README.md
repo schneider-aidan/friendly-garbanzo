@@ -1,41 +1,40 @@
-# MediaPipe Tasks Pose Landmark Detection Android Demo
+Authors: Thomas Reljin, Aiden Schneider, Elijah Routh
 
-### Overview
+Project Description:
+Our gesture lock app and locking device can be used to create a unique security experience that requires using gestures and audio to unlock doors, cabinets, etc.
 
-This is a camera app that can detects landmarks on a person either from continuous camera frames seen by your device's back camera, an image, or a video from the device's gallery using a custom **task** file.
+Required Hardware:
+The following were bought on Amazon - links attached
 
-The task file is downloaded by a Gradle script when you build and run the app. You don't need to do any additional steps to download task files into the project explicitly unless you wish to use your own landmark detection task. If you do use your own task file, place it into the app's *assets* directory.
+Relay
+https://www.amazon.com/AEDIKO-Channel-Optocoupler-Isolation-Support/dp/B095YFJ69T/ref=sr_1_3?crid=K7LK36Z2F6P4&dib=eyJ2IjoiMSJ9.xM0gVkZuRCa_k3Ea0PvQDMvNtu0X3AgFuuET0DFNeVTvFAiPrsxX7DCuU5fwJihjalfdx1A-wtPJIxSvy3M2olrhIBow9JLPmTndbjtgOsvUJKIh13uVrQ64FXWaZcOY_F407TdOxI-B-Vt7IuRpKIdbfD3Lc_gwY13Jh0RKC_7sV_wiGFdrICJ_dor4iiQ5QjAcKrJl0qOuloscjQ6nO5xs6Zwl51XpVyM4HsxPQnA.fQnz2sajnUoURS0tJwDo58yegIGOUVm9IelJJxaPxrs&dib_tag=se&keywords=12%2Bvolt%2Brelay%2Barduino&qid=1777732321&sprefix=12%2Bvolt%2Brelay%2Barduino%2Caps%2C127&sr=8-3&th=1
 
-This application should be run on a physical Android device to take advantage of the camera.
+Solenoid Lock
+https://www.amazon.com/QWORK-Electromagnetic-Solenoid-Assembly-Cabinet/dp/B093H6GD4V/ref=sr_1_5?crid=1233HGMZPYQXM&dib=eyJ2IjoiMSJ9.S-DZEqPGaqeztLpW2WHrbsa_ql3u3h2K_1s5ba5QhFGa_R2f43mxzpdl4PsofNi1oJ7xGcDsziVBs9iuObFYFdNZARlNceu0E0cfAQ09fB8udaajJnMMX4SqmYeSDuRDlJtKMCTBjujXN22JZvH4liW2EkPNe1KRvCsSkBd8Gj6nbM8uDyG0RPd8Sgv1dEWcXStilmEfCJFlunqNuEiV4gbeUi8jRYhCuqTqrXcSaM8m4nNBUKVe_vi70gQMVjM1RPQg9YqTOQGeROVkTeBbkntaR9lcTpkZxn_S9NvPtkU.7mbJvyFVrue60SXpM9dcDt3rHvbK39okXeMhV7g_pEQ&dib_tag=se&keywords=solenoid%2Block&qid=1777733061&sprefix=solenoid%2Block%2Caps%2C127&sr=8-5&th=1
 
-![Pose Landmarker Demo](pose_landmarker.png?raw=true "Pose Landmarker Demo")
-[Public domain video from Lance Foss](https://www.youtube.com/watch?v=KALIKOd1pbA)
+12 V Power Supply
+https://www.amazon.com/JOVNO-100-240V-Converter-Transformer-5-5x2-5mm/dp/B0875WMYCX/ref=sr_1_1?crid=2RZW6C31N3E0X&dib=eyJ2IjoiMSJ9.ry-AHtMszPw8F-QfMIxi-pToDTYiqI7yrikY8lQWOKDQQhGDXFPEU40IOHNa3LK_OFD8BJu7_Rr6iisXk41qyh1mP9G7XJjWylH7HOS8NPicGu7EPz9iRci0ud8EkgAa2LGlxkULnbhGCAh7EFCJhJw3bUdBQSWE6Qi-fikUV9Y03j7x5at8YLFYmM8DX2MsgNfoGEvD21QgMkFYOc1JwwCo0eTe_Q1d_gsDy8m5P8E.6FVpiN-1KiA4RUWlzrXWukRDDbgkbUlr-N7hMzW1uug&dib_tag=se&keywords=12%2Bvolt%2Bwall%2Barduino&qid=1777733108&sprefix=12%2Bvolt%2Bwall%2Barduino%2Caps%2C120&sr=8-1&th=1
 
-## Build the demo using Android Studio
+The following were provided by the instructor:
+ESP32
+PIR sensor
 
-### Prerequisites
+Required Software:
+MediaPipe
+https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/android
 
-*   The **[Android Studio](https://developer.android.com/studio/index.html)** IDE. This sample has been tested on Android Studio Dolphin.
+Directions:
+Open the project folder in Android Studio and install app onto android app.
+Assemble ESP32, PIR sensor, Relay, and Solenoid Lock.
+Install ESP32 with Arduino code.
+Open the app.
+Open the settings page.
+Note - The password is “password.”
+Connect to ESP32 via Bluetooth.
+Note - the app will not allow the user to attempt a gesture password without a bluetooth connection.
+Add any desired poses and set a new gesture password.
+Set a new audio password.
+Return to the home screen and attempt gesture and audio password.
+Note - Once both passwords are entered correctly the first time the lock will unlock for 5 seconds and then relock.
+Note - To reset after failed attempt or after successfully entering both the user must hit the reset button.
 
-*   A physical Android device with a minimum OS version of SDK 24 (Android 7.0 -
-    Nougat) with developer mode enabled. The process of enabling developer mode
-    may vary by device.
-
-### Building
-
-*   Open Android Studio. From the Welcome screen, select Open an existing
-    Android Studio project.
-
-*   From the Open File or Project window that appears, navigate to and select
-    the mediapipe/examples/pose_landmarker/android directory. Click OK. You may
-    be asked if you trust the project. Select Trust.
-
-*   If it asks you to do a Gradle Sync, click OK.
-
-*   With your Android device connected to your computer and developer mode
-    enabled, click on the green Run arrow in Android Studio.
-
-### Models used
-
-Downloading, extraction, and placing the models into the *assets* folder is
-managed automatically by the **download.gradle** file.
