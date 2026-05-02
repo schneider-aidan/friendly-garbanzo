@@ -18,6 +18,7 @@ The following were provided by the instructor:<br/>
 - ESP32<br/>
 - PIR sensor<br/>
 - Jumper wires<br/>
+<br/>
 
 Required Software:
 [MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/android)
