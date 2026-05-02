@@ -24,17 +24,20 @@ MediaPipe
 https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/android
 
 Directions:
-Open the project folder in Android Studio and install app onto android app.
-Assemble ESP32, PIR sensor, Relay, and Solenoid Lock.
-Install ESP32 with Arduino code.
-Open the app.
-Open the settings page.
+1. Open the project folder in Android Studio and install app onto android app.
+2. Assemble ESP32, PIR sensor, Relay, and Solenoid Lock.
+3. Install ESP32 with Arduino code.
+4. Open the app.
+5. Open the settings page.
 Note - The password is “password.”
-Connect to ESP32 via Bluetooth.
+6. Connect to ESP32 via Bluetooth.
 Note - the app will not allow the user to attempt a gesture password without a bluetooth connection.
-Add any desired poses and set a new gesture password.
-Set a new audio password.
-Return to the home screen and attempt gesture and audio password.
+7. Add any desired poses and set a new gesture password.
+8. Set a new audio password.
+9. Return to the home screen and attempt gesture and audio password.
 Note - Once both passwords are entered correctly the first time the lock will unlock for 5 seconds and then relock.
 Note - To reset after failed attempt or after successfully entering both the user must hit the reset button.
 
+For testing there are two arduino files.
+PoseLandmark.ino includes the sleepmode - but entering sleep mode seems to disconnect the bluetooth requiring the user to reconnect everytime.
+For testing, it can be better to use LockingMechanism.ino which does not include the sleep mode.
