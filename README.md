@@ -1,4 +1,5 @@
 Authors: Thomas Reljin, Aidan Schneider, Elijah Routh
+[Github Repo](https://github.com/schneider-aidan/friendly-garbanzo)
 
 ## Project Description:
 Our gesture lock app and locking device can be used to create a unique security experience that requires using gestures and audio to unlock doors, cabinets, etc.
